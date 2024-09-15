@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flower Count Application</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link href="logo.png" rel="icon"/>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f8;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            color: white;
+            padding: 15px 0;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            left: 0;
+            text-align: center;
+            z-index: 1000;
+        }
+        header img {
+            max-width: 120px;
+            vertical-align: middle;
+        }
+        .container {
+            max-width: 800px;
+            margin: 80px auto 20px auto; /* Center container and adjust top margin for header */
+            padding: 20px;
+        }
+        h1 {
+            color: #343a40;
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+            text-align: center;
+        }
+        h2 {
+            color: #343a40;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-control-file {
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 8px;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border: none;
+            width: 100%;
+            padding: 10px;
+            font-size: 1.1rem;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .results-card {
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .results-card div {
+            margin: 10px 0;
+            font-size: 1.1rem;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .success {
+            color: #28a745;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            border-width: .4em;
+        }
+        .loader {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="logo.png" alt="Flower Count Logo"> <!-- Replace with your actual logo file -->
+    </header>
+    <div class="container">
+        <h1>Flower Count Batch Processing</h1>
+        <form id="uploadForm">
+            <div class="form-group">
+                <label for="files">Select Images</label>
+                <input type="file" class="form-control-file" id="files" multiple />
+            </div>
+            <button type="button" class="btn btn-primary" onclick="uploadImages()">Upload and Process</button>
+        </form>
+        <h2>Results</h2>
+        <div id="results" class="results-card"></div>
+    </div>
+
+    <div class="loader" id="loader">
+        <div class="spinner-border" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
+    </div>
+
+    <script>
+        async function uploadImages() {
+            const loader = document.getElementById('loader');
+            const form = document.getElementById('uploadForm');
+            const formData = new FormData(form);
+
+            // Show the loader
+            loader.style.display = 'block';
+
+            // Append files to FormData
+            for (const file of document.getElementById('files').files) {
+                formData.append('files', file, file.name);
+            }
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/batch_predict/', {
+                    method: 'POST',
+                    body: formData,
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const result = await response.json();
+                displayResults(result.results);
+            } catch (error) {
+                console.error('Error:', error);
+                displayResults([{ filename: 'Unknown', error: 'An error occurred while processing the files.' }]);
+            } finally {
+                // Hide the loader
+                loader.style.display = 'none';
+            }
+        }
+
+        function displayResults(results) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+            results.forEach(result => {
+                const div = document.createElement('div');
+                if (result.error) {
+                    div.textContent = `File: ${result.filename} - Error: ${result.error}`;
+                    div.className = 'error';
+                } else {
+                    div.textContent = `File: ${result.filename} - Count: ${result.count}`;
+                    div.className = 'success';
+                }
+                resultsDiv.appendChild(div);
+            });
+        }
+    </script>
+</body>
+</html>
