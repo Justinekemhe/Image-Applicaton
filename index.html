@@ -29,7 +29,7 @@
         }
         .container {
             max-width: 800px;
-            margin: 80px auto 20px auto; /* Center container and adjust top margin for header */
+            margin: 80px auto 20px auto;
             padding: 20px;
         }
         h1 {
@@ -90,6 +90,9 @@
             transform: translate(-50%, -50%);
             z-index: 1000;
         }
+        .login-form {
+            display: none; /* Initially hidden */
+        }
     </style>
 </head>
 <body>
@@ -98,15 +101,36 @@
     </header>
     <div class="container">
         <h1>Flower Count Batch Processing</h1>
-        <form id="uploadForm">
-            <div class="form-group">
-                <label for="files">Select Images</label>
-                <input type="file" class="form-control-file" id="files" multiple />
-            </div>
-            <button type="button" class="btn btn-primary" onclick="uploadImages()">Upload and Process</button>
-        </form>
-        <h2>Results</h2>
-        <div id="results" class="results-card"></div>
+
+        <!-- Login Form -->
+        <div class="login-form" id="loginForm">
+            <h2>Login</h2>
+            <form id="login">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" class="form-control" id="username" required />
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" class="form-control" id="password" required />
+                </div>
+                <button type="button" class="btn btn-primary" onclick="login()">Login</button>
+            </form>
+            <div id="loginError" class="error"></div>
+        </div>
+
+        <!-- Image Upload Form -->
+        <div id="uploadSection" style="display: none;"> <!-- Initially hidden -->
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label for="files">Select Images</label>
+                    <input type="file" class="form-control-file" id="files" multiple />
+                </div>
+                <button type="button" class="btn btn-primary" onclick="uploadImages()">Upload and Process</button>
+            </form>
+            <h2>Results</h2>
+            <div id="results" class="results-card"></div>
+        </div>
     </div>
 
     <div class="loader" id="loader">
@@ -116,10 +140,46 @@
     </div>
 
     <script>
+        // Show the login form on page load
+        window.onload = () => {
+            document.getElementById('loginForm').style.display = 'block';
+        };
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Invalid username or password');
+                }
+
+                const data = await response.json();
+                localStorage.setItem('token', data.access_token); // Store the token in local storage
+                document.getElementById('loginForm').style.display = 'none'; // Hide login form
+                document.getElementById('uploadSection').style.display = 'block'; // Show upload section
+                document.getElementById('loginError').innerText = ''; // Clear error
+            } catch (error) {
+                document.getElementById('loginError').innerText = error.message;
+            }
+        }
+
         async function uploadImages() {
             const loader = document.getElementById('loader');
             const form = document.getElementById('uploadForm');
             const formData = new FormData(form);
+            const token = localStorage.getItem('token'); // Retrieve the token from local storage
 
             // Show the loader
             loader.style.display = 'block';
@@ -132,11 +192,16 @@
             try {
                 const response = await fetch('http://127.0.0.1:8000/batch_predict/', {
                     method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`, // Include the token in the request
+                    },
                     body: formData,
                 });
+
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
+
                 const result = await response.json();
                 displayResults(result.results);
             } catch (error) {
